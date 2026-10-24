@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Klinik Sehat Sentosa Assistant</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #6b7280;
+    --border: #e3e6eb; --user: #0f8a7e; --user-text: #ffffff; --bot: #e8f4f2; --error: #c0392b;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; justify-content: center;
+  }
+  .app { width: 100%; max-width: 760px; height: 100%; display: flex; flex-direction: column; }
+  header { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: baseline; gap: 10px; }
+  header h1 { font-size: 17px; margin: 0; }
+  header span { color: var(--muted); font-size: 13px; }
+  #messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .empty { margin: auto; color: var(--muted); text-align: center; }
+  .msg { max-width: 85%; padding: 9px 13px; border-radius: 14px; white-space: pre-wrap; word-wrap: break-word; }
+  .msg.user { align-self: flex-end; background: var(--user); color: var(--user-text); border-bottom-right-radius: 4px; }
+  .msg.bot { align-self: flex-start; background: var(--bot); border-bottom-left-radius: 4px; }
+  .msg.bot.streaming::after { content: "▍"; animation: blink 1s steps(1) infinite; margin-left: 1px; }
+  .msg.error { color: var(--error); }
+  @keyframes blink { 50% { opacity: 0; } }
+  .disclaimer { padding: 6px 16px; font-size: 12px; color: var(--muted); background: #fff8e6; border-bottom: 1px solid var(--border); }
+  form { display: flex; gap: 8px; padding: 12px 16px 16px; border-top: 1px solid var(--border); background: var(--bg); }
+  textarea {
+    flex: 1; resize: none; min-height: 44px; max-height: 160px; padding: 10px 12px;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--text); font: inherit;
+  }
+  textarea:focus { outline: 2px solid var(--user); outline-offset: -1px; }
+  button {
+    padding: 0 18px; border: 0; border-radius: 10px; background: var(--user); color: var(--user-text);
+    font: inherit; font-weight: 600; cursor: pointer;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header><h1>Sehat Sentosa Assistant</h1><span>Quarkus + LangChain4j + Redis RAG</span></header>
+  <div class="disclaimer">Demo pribadi dengan data fiktif. Bukan pengganti konsultasi dokter. Darurat: hubungi 119.</div>
+  <div id="messages"><div class="empty">Tanya jadwal dokter, info obat, atau data pasien demo.<br>Contoh: "Bagaimana hasil lab Bambang Sutrisno?"</div></div>
+  <form id="form">
+    <textarea id="input" rows="1" placeholder="Ketik pesan… (Enter kirim, Shift+Enter baris baru)" autofocus></textarea>
+    <button id="send" type="submit">Kirim</button>
+  </form>
+</div>
+<script>
+  const messages = document.getElementById("messages");
+  const form = document.getElementById("form");
+  const input = document.getElementById("input");
+  const send = document.getElementById("send");
+
+  function addMessage(cls, text) {
+    messages.querySelector(".empty")?.remove();
+    const el = document.createElement("div");
+    el.className = "msg " + cls;
+    el.textContent = text;
+    messages.appendChild(el);
+    messages.scrollTop = messages.scrollHeight;
+    return el;
+  }
+
+  input.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+  });
+  input.addEventListener("input", () => {
+    input.style.height = "auto";
+    input.style.height = input.scrollHeight + "px";
+  });
+
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text || send.disabled) return;
+
+    addMessage("user", text);
+    input.value = "";
+    input.style.height = "auto";
+    send.disabled = true;
+    const bot = addMessage("bot streaming", "");
+
+    try {
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "text/plain", "Accept": "text/event-stream" },
+        body: text
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+
+      // Read the SSE stream: events look like data:{"token":"..."} separated by blank lines.
+      const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+      let buffer = "";
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += value;
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith("data:")) continue;
+          bot.textContent += JSON.parse(line.slice(5)).token;
+          messages.scrollTop = messages.scrollHeight;
+        }
+      }
+      if (!bot.textContent) bot.textContent = "(tidak ada jawaban)";
+    } catch (err) {
+      bot.classList.add("error");
+      bot.textContent = "Gagal: " + err.message;
+    } finally {
+      bot.classList.remove("streaming");
+      send.disabled = false;
+      input.focus();
+    }
+  });
+</script>
+</body>
+</html>

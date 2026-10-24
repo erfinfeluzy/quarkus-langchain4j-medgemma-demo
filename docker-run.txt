@@ -1,0 +1,90 @@
+=====================================================
+ Menjalankan aplikasi demo-med-ai (Quarkus, JVM mode) via Docker
+ Semua container di satu network: demo-net
+=====================================================
+
+MySQL, Redis, dan Ollama dipakai bersama dengan demo HR (C:\Users\erfin\demo),
+jadi tidak ada container MySQL/Redis kedua. Data dipisah:
+  - MySQL : schema "clinic" (user clinic_app), demo HR memakai schema "hr"
+  - Redis : index "med-rag-index" dengan prefix "med-rag:", demo HR memakai "rag-index" / "rag:"
+
+  Service   Nama container   Alamat dari dalam network
+  -------   --------------   ----------------------------------
+  MySQL     demo-mysql       jdbc:mysql://demo-mysql:3306/clinic
+  Redis     demo-redis       redis://demo-redis:6379
+  Ollama    ollama           http://ollama:11434
+  Aplikasi  med-app          http://med-app:8080   (laptop: http://localhost:8081)
+
+Perintah di bawah ditulis untuk PowerShell (backtick ` untuk lanjut baris).
+Jalankan dari folder project: C:\Users\erfin\demo-med-ai
+
+
+-----------------------------------------------------
+1. Pastikan network dan container bersama jalan
+-----------------------------------------------------
+  docker network create demo-net        (lewati kalau sudah ada)
+  docker start demo-mysql demo-redis ollama
+  docker network connect demo-net ollama   (kalau ollama belum di demo-net)
+
+Kalau demo-mysql / demo-redis belum ada sama sekali, buat dulu sesuai README
+demo HR, atau jalankan saja: .\docker-run.cmd
+
+
+-----------------------------------------------------
+2. Buat schema clinic di demo-mysql (sekali saja)
+-----------------------------------------------------
+init.sql membuat database clinic, user clinic_app, tabel, dan data pasien fiktif.
+Kalau dijalankan ulang, schema clinic di-reset (schema hr tidak tersentuh).
+
+  Get-Content db/init.sql | docker exec -i demo-mysql mysql -uroot -prootpass
+
+Cek:
+  docker exec demo-mysql mysql -uclinic_app -pclinic_app_pass clinic -e "SELECT name, diagnosis FROM patients"
+
+
+-----------------------------------------------------
+3. Build aplikasi & image
+-----------------------------------------------------
+  .\mvnw.cmd package -DskipTests
+  docker build -f src/main/docker/Dockerfile.jvm -t quarkus/demo-med-ai-jvm .
+
+
+-----------------------------------------------------
+4. Aplikasi
+-----------------------------------------------------
+  docker run -d --name med-app --network demo-net `
+    -p 127.0.0.1:8081:8080 `
+    -v "${PWD}/rag-docs:/deployments/rag-docs:ro" `
+    -e QUARKUS_DATASOURCE_JDBC_URL=jdbc:mysql://demo-mysql:3306/clinic `
+    -e QUARKUS_REDIS_HOSTS=redis://demo-redis:6379 `
+    -e QUARKUS_LANGCHAIN4J_OLLAMA_BASE_URL=http://ollama:11434 `
+    -e QUARKUS_LANGCHAIN4J_EASY_RAG_PATH=/deployments/rag-docs `
+    quarkus/demo-med-ai-jvm
+
+Aplikasi bisa diakses di: http://localhost:8081
+Lihat log: docker logs -f med-app
+
+
+-----------------------------------------------------
+5. Cek data terpisah
+-----------------------------------------------------
+Key RAG milik aplikasi ini vs demo HR di Redis:
+  docker exec demo-redis redis-cli --scan --pattern "med-rag:*"
+  docker exec demo-redis redis-cli --scan --pattern "rag:*"
+
+
+-----------------------------------------------------
+6. Stop / deploy ulang
+-----------------------------------------------------
+Stop aplikasi saja (MySQL, Redis, Ollama dipakai bersama, biarkan jalan):
+  docker stop med-app
+
+Deploy ulang aplikasi setelah ada perubahan kode:
+  docker rm -f med-app
+  .\mvnw.cmd package -DskipTests
+  docker build -f src/main/docker/Dockerfile.jvm -t quarkus/demo-med-ai-jvm .
+  (lalu jalankan lagi perintah di langkah 4)
+
+Opsi tambahan untuk med-app:
+  Remote debug : -p 127.0.0.1:5005:5005 -e JAVA_DEBUG=true -e JAVA_DEBUG_PORT=*:5005
+  Batas memori : -m 1g
