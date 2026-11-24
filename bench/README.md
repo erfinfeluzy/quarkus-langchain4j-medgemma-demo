@@ -73,23 +73,4 @@ Container `ollama` (lihat `docker-run.sh`): Ollama 0.40.4, `OLLAMA_CONTEXT_LENGT
 `LLAMA_ARG_CACHE_RAM=0`, `OLLAMA_NUM_PARALLEL=1` (default). VM Docker/WSL2 diberi `memory=10GB` dan `swap=8GB` di
 `%UserProfile%\.wslconfig`. Ketiga model (MedGemma, qwen2.5, nomic-embed) tetap dimuat bersamaan, 100% di GPU.
 
-## Hal yang harus disebut di paper
 
-- **Prompt cache llama.cpp dimatikan** (`LLAMA_ARG_CACHE_RAM=0`). Default-nya llama-server di dalam Ollama menyimpan
-  prompt sebelumnya di RAM sampai 8 GB per model. Proses MedGemma tumbuh sampai 7 GB RAM, VM masuk swap, dan TTFT p95
-  naik ke 2.5 sampai 3.4 s; pertanyaan yang diulang juga jadi lebih cepat secara tidak realistis (gambar yang sama:
-  1.2 s menjadi 0.25 s). Tanpa cache itu, awalan prompt yang sama dengan request sebelumnya tetap dipakai ulang lewat
-  KV cache slot, seperti pemakaian nyata. Subset `first` dan `repeat` tetap dilaporkan sebagai pemeriksaan.
-- **RAM adalah batas utama di laptop 16 GB**, bukan VRAM. Dengan VM Docker default (7.6 GB) llama-server dibunuh
-  OOM killer saat ketiga model dimuat (terlihat di `dmesg`), dan request yang sedang berjalan gagal.
-- **Context 8192 token** untuk semua model lewat `OLLAMA_CONTEXT_LENGTH` (dan Modelfile `medgemma-4b-it-8k:q4_k_m`).
-  Extension Ollama quarkus-langchain4j 1.13.3 mengirim opsi context dengan nama `numCtx`, yang diabaikan Ollama
-  ("invalid option provided"), jadi `model-options.num-ctx` di application.properties tidak berpengaruh. Dengan 32K
-  yang sebelumnya diset di container, VRAM hampir penuh dan model saling dikeluarkan sehingga TTFT melonjak 8 sampai 13 s.
-- **Jumlah token output** dihitung dari jumlah chunk stream (Ollama mengirim satu token per chunk), karena extension
-  yang sama tidak mengisi jumlah token saat streaming. Jumlah token input tidak tersedia.
-- **TTFT skenario `rag` dan `tools` sudah termasuk qwen2.5** (`routing_ms`), karena setiap pertanyaan teks lewat
-  router itu dulu. Skenario `image` dan `baseline` tidak.
-- Untuk perbandingan kuantisasi (Q8_0, BF16), buat varian 8K yang sama untuk tiap file GGUF dan ganti
-  `quarkus.langchain4j.ollama.chat-model.model-id`. BF16 MedGemma 4B (sekitar 8 GB) tidak muat penuh di VRAM 8 GB;
-  catat pembagian CPU/GPU dari `ollama ps`.
