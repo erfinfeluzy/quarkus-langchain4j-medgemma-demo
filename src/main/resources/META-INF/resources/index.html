@@ -41,14 +41,27 @@
     font: inherit; font-weight: 600; cursor: pointer;
   }
   button:disabled { opacity: .5; cursor: default; }
+  #attach { padding: 0 12px; background: var(--panel); color: var(--text); border: 1px solid var(--border); font-size: 18px; }
+  #attach:hover:not(:disabled) { border-color: var(--user); }
+  #preview { display: none; align-items: center; gap: 10px; padding: 8px 16px 0; border-top: 1px solid var(--border); font-size: 13px; color: var(--muted); }
+  #preview.show { display: flex; }
+  #preview img { height: 56px; max-width: 96px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+  #preview .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #preview button { padding: 4px 10px; background: transparent; color: var(--muted); border: 1px solid var(--border); font-weight: 400; }
+  #preview + form { border-top: 0; }
+  .msg strong { font-weight: 650; }
+  .msg img { display: block; max-width: 240px; max-height: 240px; border-radius: 8px; margin-bottom: 6px; }
 </style>
 </head>
 <body>
 <div class="app">
   <header><h1>Sehat Sentosa Assistant</h1><span>Quarkus + LangChain4j + Redis RAG</span></header>
   <div class="disclaimer">Demo pribadi dengan data fiktif. Bukan pengganti konsultasi dokter. Darurat: hubungi 119.</div>
-  <div id="messages"><div class="empty">Tanya jadwal dokter, info obat, atau data pasien demo.<br>Contoh: "Bagaimana hasil lab Bambang Sutrisno?"</div></div>
+  <div id="messages"><div class="empty">Tanya jadwal dokter, info obat, atau data pasien demo.<br>Contoh: "Bagaimana hasil lab Bambang Sutrisno?"<br>Klik 📎 untuk upload gambar medis (MRI, rontgen, CT; JPG/PNG/WebP).</div></div>
+  <div id="preview"><img alt=""><span class="name"></span><button id="remove" type="button">Hapus</button></div>
   <form id="form">
+    <input id="file" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+    <button id="attach" type="button" title="Upload gambar medis (JPG, PNG, WebP, maks 10 MB)" aria-label="Upload gambar">📎</button>
     <textarea id="input" rows="1" placeholder="Ketik pesan… (Enter kirim, Shift+Enter baris baru)" autofocus></textarea>
     <button id="send" type="submit">Kirim</button>
   </form>
@@ -58,16 +71,65 @@
   const form = document.getElementById("form");
   const input = document.getElementById("input");
   const send = document.getElementById("send");
+  const fileInput = document.getElementById("file");
+  const attach = document.getElementById("attach");
+  const preview = document.getElementById("preview");
+  const MAX_SIZE = 10 * 1024 * 1024;
+  let image = null; // { file, url } gambar yang akan dikirim bersama pesan berikutnya
 
-  function addMessage(cls, text) {
+  function addMessage(cls, text, imageUrl) {
     messages.querySelector(".empty")?.remove();
     const el = document.createElement("div");
     el.className = "msg " + cls;
-    el.textContent = text;
+    if (imageUrl) {
+      const img = document.createElement("img");
+      img.src = imageUrl;
+      img.alt = "Gambar yang diupload";
+      el.appendChild(img);
+    }
+    if (text) el.appendChild(document.createTextNode(text));
     messages.appendChild(el);
     messages.scrollTop = messages.scrollHeight;
     return el;
   }
+
+  // Markdown sederhana dari model: **tebal**, *miring*, judul "#" dan bullet "*"/"-". Teks di-escape dulu
+  // supaya HTML dari model tidak pernah dijalankan; baris baru tetap ditangani white-space: pre-wrap.
+  function renderMarkdown(text) {
+    const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return escaped
+      .replace(/^[ \t]*#{1,6}[ \t]+(.+)$/gm, "<strong>$1</strong>")
+      .replace(/^([ \t]*)[*-][ \t]+/gm, "$1• ")
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|[^*\w])\*(?!\s)([^*\n]+?)\*(?!\w)/g, "$1<em>$2</em>");
+  }
+
+  function clearImage() {
+    image = null;
+    fileInput.value = "";
+    preview.classList.remove("show");
+  }
+
+  attach.addEventListener("click", () => fileInput.click());
+  document.getElementById("remove").addEventListener("click", () => { if (image) URL.revokeObjectURL(image.url); clearImage(); });
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      addMessage("bot error", "Format tidak didukung. Upload gambar JPG, PNG atau WebP (file DICOM perlu diekspor dulu).");
+      return clearImage();
+    }
+    if (file.size > MAX_SIZE) {
+      addMessage("bot error", "Gambar terlalu besar (maks 10 MB).");
+      return clearImage();
+    }
+    if (image) URL.revokeObjectURL(image.url);
+    image = { file, url: URL.createObjectURL(file) };
+    preview.querySelector("img").src = image.url;
+    preview.querySelector(".name").textContent = file.name;
+    preview.classList.add("show");
+    input.focus();
+  });
 
   input.addEventListener("keydown", e => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
@@ -80,25 +142,37 @@
   form.addEventListener("submit", async e => {
     e.preventDefault();
     const text = input.value.trim();
-    if (!text || send.disabled) return;
+    const sent = image;
+    if ((!text && !sent) || send.disabled) return;
 
-    addMessage("user", text);
+    addMessage("user", text, sent?.url);
     input.value = "";
     input.style.height = "auto";
-    send.disabled = true;
+    clearImage();
+    send.disabled = attach.disabled = true;
     const bot = addMessage("bot streaming", "");
 
     try {
-      const res = await fetch("/chat", {
-        method: "POST",
-        headers: { "Content-Type": "text/plain", "Accept": "text/event-stream" },
-        body: text
-      });
-      if (!res.ok) throw new Error("HTTP " + res.status);
+      let res;
+      if (sent) {
+        // Gambar dibaca MedGemma lewat endpoint terpisah; browser mengisi Content-Type multipart sendiri
+        const form = new FormData();
+        form.append("message", text);
+        form.append("file", sent.file);
+        res = await fetch("/chat/image", { method: "POST", headers: { "Accept": "text/event-stream" }, body: form });
+      } else {
+        res = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "text/plain", "Accept": "text/event-stream" },
+          body: text
+        });
+      }
+      if (!res.ok) throw new Error(res.status === 400 ? "format gambar tidak didukung" : "HTTP " + res.status);
 
       // Read the SSE stream: events look like data:{"token":"..."} separated by blank lines.
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
       let buffer = "";
+      let answer = "";
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
@@ -107,7 +181,9 @@
         buffer = lines.pop();
         for (const line of lines) {
           if (!line.startsWith("data:")) continue;
-          bot.textContent += JSON.parse(line.slice(5)).token;
+          // Dirender ulang dari teks lengkap tiap token, karena "**" bisa terpotong di antara dua token
+          answer += JSON.parse(line.slice(5)).token ?? "";
+          bot.innerHTML = renderMarkdown(answer);
           messages.scrollTop = messages.scrollHeight;
         }
       }
@@ -117,7 +193,7 @@
       bot.textContent = "Gagal: " + err.message;
     } finally {
       bot.classList.remove("streaming");
-      send.disabled = false;
+      send.disabled = attach.disabled = false;
       input.focus();
     }
   });

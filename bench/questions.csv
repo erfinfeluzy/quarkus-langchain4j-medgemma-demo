@@ -1,0 +1,84 @@
+# id;scenario;question;image
+# scenario: baseline (POST /chat/baseline), rag dan tools (POST /chat, qwen2.5 yang memilih jalurnya), image (POST /chat/image)
+# Baseline memakai pertanyaan yang sama dengan rag (B01 = R01, dst.) supaya selisihnya bisa diuji berpasangan.
+# Pertanyaan tools menyebut nama pasien secara lengkap: benchmark tidak memakai "pasien terakhir".
+R01;rag;Kapan jadwal Poli Jantung?;
+R02;rag;Jam berapa Poli Anak buka?;
+R03;rag;Siapa dokter di Poli Kandungan dan kapan jadwalnya?;
+R04;rag;Berapa tarif konsultasi Poli Umum untuk pasien umum?;
+R05;rag;Apakah klinik menerima pasien BPJS?;
+R06;rag;Bagaimana cara mendaftar online?;
+R07;rag;Berapa lama hasil laboratorium rutin selesai?;
+R08;rag;Apakah saya harus puasa sebelum cek gula darah puasa?;
+R09;rag;Apakah UGD buka pada hari libur nasional?;
+R10;rag;Berapa dosis paracetamol untuk orang dewasa?;
+R11;rag;Apa efek samping ibuprofen?;
+R12;rag;Apakah amoxicillin boleh dibeli tanpa resep dokter?;
+R13;rag;Kapan sebaiknya metformin diminum?;
+R14;rag;Kapan waktu minum simvastatin yang dianjurkan?;
+R15;rag;Berapa nilai normal gula darah puasa?;
+R16;rag;Berapa batas tekanan darah yang termasuk hipertensi grade 1?;
+R17;rag;Berapa target HbA1c untuk pasien diabetes?;
+R18;rag;Berapa kadar hemoglobin normal untuk perempuan?;
+R19;rag;Berapa menit aktivitas fisik yang dianjurkan per minggu?;
+R20;rag;Apa saja tanda bahaya yang perlu segera ke UGD?;
+B01;baseline;Kapan jadwal Poli Jantung?;
+B02;baseline;Jam berapa Poli Anak buka?;
+B03;baseline;Siapa dokter di Poli Kandungan dan kapan jadwalnya?;
+B04;baseline;Berapa tarif konsultasi Poli Umum untuk pasien umum?;
+B05;baseline;Apakah klinik menerima pasien BPJS?;
+B06;baseline;Bagaimana cara mendaftar online?;
+B07;baseline;Berapa lama hasil laboratorium rutin selesai?;
+B08;baseline;Apakah saya harus puasa sebelum cek gula darah puasa?;
+B09;baseline;Apakah UGD buka pada hari libur nasional?;
+B10;baseline;Berapa dosis paracetamol untuk orang dewasa?;
+B11;baseline;Apa efek samping ibuprofen?;
+B12;baseline;Apakah amoxicillin boleh dibeli tanpa resep dokter?;
+B13;baseline;Kapan sebaiknya metformin diminum?;
+B14;baseline;Kapan waktu minum simvastatin yang dianjurkan?;
+B15;baseline;Berapa nilai normal gula darah puasa?;
+B16;baseline;Berapa batas tekanan darah yang termasuk hipertensi grade 1?;
+B17;baseline;Berapa target HbA1c untuk pasien diabetes?;
+B18;baseline;Berapa kadar hemoglobin normal untuk perempuan?;
+B19;baseline;Berapa menit aktivitas fisik yang dianjurkan per minggu?;
+B20;baseline;Apa saja tanda bahaya yang perlu segera ke UGD?;
+T01;tools;Bagaimana hasil lab Bambang Sutrisno?;
+T02;tools;Apa alergi Bambang Sutrisno?;
+T03;tools;Obat apa yang sedang diminum Sri Wahyuni?;
+T04;tools;Bagaimana hasil lab Sri Wahyuni?;
+T05;tools;Apa diagnosis Joko Purnomo?;
+T06;tools;Obat apa saja yang diminum Joko Purnomo?;
+T07;tools;Apa obat yang sedang diminum Ani Kurniasih?;
+T08;tools;Kapan Ani Kurniasih terakhir berkunjung dan ke poli apa?;
+T09;tools;Apakah Rudi Hartono punya alergi?;
+T10;tools;Bagaimana hasil lab Rudi Hartono?;
+T11;tools;Apa alergi Wulan Sari?;
+T12;tools;Obat apa yang diberikan kepada Wulan Sari?;
+T13;tools;Obat apa yang diminum Teguh Santoso?;
+T14;tools;Apa diagnosis Teguh Santoso?;
+T15;tools;Bagaimana hasil lab Lestari Handayani?;
+T16;tools;Apakah Lestari Handayani alergi obat?;
+T17;tools;Obat apa yang dipakai Arif Rahman?;
+T18;tools;Apa diagnosis Fitri Amalia?;
+T19;tools;Siapa saja pasien yang berkunjung ke Poli Jantung?;
+T20;tools;Siapa saja pasien Poli Anak?;
+I01;image;;sample-image/mri-meningioma-besar.jpg
+I02;image;Tolong jelaskan hasil MRI ini;sample-image/mri-meningioma-besar.jpg
+I03;image;Apakah ada massa atau tumor di gambar ini?;sample-image/mri-meningioma-besar.jpg
+I04;image;Bagian otak mana yang terlihat pada gambar ini?;sample-image/mri-meningioma-besar.jpg
+I05;image;Apakah ada pergeseran garis tengah otak?;sample-image/mri-meningioma-besar.jpg
+I06;image;;sample-image/mri-glioblastoma.jpg
+I07;image;Tolong jelaskan hasil MRI ini;sample-image/mri-glioblastoma.jpg
+I08;image;Apakah ada massa atau tumor di gambar ini?;sample-image/mri-glioblastoma.jpg
+I09;image;Bagian otak mana yang terlihat pada gambar ini?;sample-image/mri-glioblastoma.jpg
+I10;image;Apakah ada pergeseran garis tengah otak?;sample-image/mri-glioblastoma.jpg
+I11;image;;sample-image/mri-meningioma-4-potongan.jpg
+I12;image;Tolong jelaskan hasil MRI ini;sample-image/mri-meningioma-4-potongan.jpg
+I13;image;Apakah ada massa atau tumor di gambar ini?;sample-image/mri-meningioma-4-potongan.jpg
+I14;image;Bagian otak mana yang terlihat pada gambar ini?;sample-image/mri-meningioma-4-potongan.jpg
+I15;image;Apakah ada pergeseran garis tengah otak?;sample-image/mri-meningioma-4-potongan.jpg
+I16;image;;sample-image/mri-normal-warna-semu.png
+I17;image;Tolong jelaskan hasil MRI ini;sample-image/mri-normal-warna-semu.png
+I18;image;Apakah ada massa atau tumor di gambar ini?;sample-image/mri-normal-warna-semu.png
+I19;image;Bagian otak mana yang terlihat pada gambar ini?;sample-image/mri-normal-warna-semu.png
+I20;image;Apakah ada pergeseran garis tengah otak?;sample-image/mri-normal-warna-semu.png

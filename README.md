@@ -62,7 +62,7 @@ Datanya dipisah, jadi kedua demo bisa jalan bersamaan tanpa saling ganggu:
 - Docker Desktop, bisa juga diganti Podman
 - JDK 25 (untuk build jar dengan `mvnw`)
 - GPU NVIDIA + driver terbaru untuk Ollama (`--gpus all`). Tanpa GPU, hapus opsi `--gpus all`; Ollama tetap jalan tapi lebih lambat
-- HDD sekitar 6 GB untuk model `llama3.1:8b` dan `nomic-embed-text`
+- HDD sekitar 5 GB untuk model `qwen2.5:3b` (memanggil tool pasien), MedGemma 4B (menjawab) dan `nomic-embed-text`
 
 ## Cara cepat
 
@@ -105,6 +105,9 @@ Buka <http://localhost:8081> (atau <http://localhost:8080> di dev mode), atau le
 # Chat (respons berupa stream Server-Sent Events)
 curl.exe -N -X POST http://localhost:8081/chat -H "Content-Type: text/plain" -d "Kapan jadwal Poli Jantung?"
 curl.exe -N -X POST http://localhost:8081/chat -H "Content-Type: text/plain" -d "Bagaimana hasil lab Bambang Sutrisno?"
+
+# Upload gambar medis (MRI, rontgen, CT; JPG/PNG/WebP maks 10 MB), dijelaskan oleh MedGemma. File DICOM ekspor dulu ke PNG
+curl.exe -N -X POST http://localhost:8081/chat/image -F "message=Tolong jelaskan hasil MRI ini" -F "file=@mri.png;type=image/png"
 
 # Jumlah segmen dokumen RAG di Redis (hanya key med-rag:*)
 curl.exe http://localhost:8081/rag/status

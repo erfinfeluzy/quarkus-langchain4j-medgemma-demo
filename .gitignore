@@ -47,3 +47,10 @@ nb-configuration.xml
 # Draft artikel Medium (tidak di-commit)
 medium.txt
 medium-en.txt
+
+# Paper drafts (unpublished; kept local)
+docs/*.docx
+docs/*.docm
+docs/*.pdf
+docs/*.pptx
+docs/*.md

@@ -18,6 +18,8 @@ setlocal EnableDelayedExpansion
 set NETWORK=demo-net
 set APP_IMAGE=quarkus/demo-med-ai-jvm
 set APP_PORT=8081
+rem Benchmark TTFT (bench\README.md): set MED_BENCHMARK_ENABLED=true sebelum menjalankan app
+if not defined MED_BENCHMARK_ENABLED set MED_BENCHMARK_ENABLED=false
 
 cd /d "%~dp0"
 rem Path project tanpa backslash di akhir (C:\Users\...\demo-med-ai)
@@ -119,12 +121,17 @@ echo ^>^> membuat ollama
 docker run -d --name ollama --network %NETWORK% --gpus all ^
   -p 127.0.0.1:11434:11434 ^
   -e OLLAMA_HOST=0.0.0.0:11434 ^
-  -e OLLAMA_CONTEXT_LENGTH=32768 ^
+  -e OLLAMA_CONTEXT_LENGTH=8192 ^
+  -e OLLAMA_FLASH_ATTENTION=1 ^
+  -e LLAMA_ARG_CACHE_RAM=0 ^
   -v ollama:/root/.ollama ^
   ollama/ollama >nul || exit /b 1
 rem Download model kalau belum ada (sekali saja, disimpan di volume ollama)
 ping -n 4 127.0.0.1 >nul
-docker exec ollama ollama pull llama3.1:8b || exit /b 1
+docker exec ollama ollama pull qwen2.5:3b || exit /b 1
+docker exec ollama ollama pull hf.co/unsloth/medgemma-4b-it-GGUF:Q4_K_M || exit /b 1
+rem Varian dengan context 8K (lihat application.properties); berbagi file model, tidak menambah disk
+docker exec ollama sh -c "printf 'FROM hf.co/unsloth/medgemma-4b-it-GGUF:Q4_K_M\nPARAMETER num_ctx 8192\n' > /tmp/Modelfile && ollama create medgemma-4b-it-8k:q4_k_m -f /tmp/Modelfile" || exit /b 1
 docker exec ollama ollama pull nomic-embed-text
 exit /b %errorlevel%
 
@@ -173,6 +180,7 @@ docker run -d --name med-app --network %NETWORK% ^
   -e QUARKUS_REDIS_HOSTS=redis://demo-redis:6379 ^
   -e QUARKUS_LANGCHAIN4J_OLLAMA_BASE_URL=http://ollama:11434 ^
   -e QUARKUS_LANGCHAIN4J_EASY_RAG_PATH=/deployments/rag-docs ^
+  -e MED_BENCHMARK_ENABLED=%MED_BENCHMARK_ENABLED% ^
   %APP_IMAGE% >nul || exit /b 1
 echo ^>^> aplikasi jalan di http://localhost:%APP_PORT%  (log: docker logs -f med-app)
 exit /b 0

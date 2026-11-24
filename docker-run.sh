@@ -84,12 +84,17 @@ run_ollama() {
   docker run -d --name ollama --network "$NETWORK" --gpus all \
     -p 127.0.0.1:11434:11434 \
     -e OLLAMA_HOST=0.0.0.0:11434 \
-    -e OLLAMA_CONTEXT_LENGTH=32768 \
+    -e OLLAMA_CONTEXT_LENGTH=8192 \
+    -e OLLAMA_FLASH_ATTENTION=1 \
+    -e LLAMA_ARG_CACHE_RAM=0 \
     -v ollama:/root/.ollama \
     ollama/ollama >/dev/null
   # Download model kalau belum ada (sekali saja, disimpan di volume ollama)
   sleep 3
-  docker exec ollama ollama pull llama3.1:8b
+  docker exec ollama ollama pull qwen2.5:3b
+  docker exec ollama ollama pull hf.co/unsloth/medgemma-4b-it-GGUF:Q4_K_M
+  # Varian dengan context 8K (lihat application.properties); berbagi file model, tidak menambah disk
+  docker exec ollama sh -c 'printf "FROM hf.co/unsloth/medgemma-4b-it-GGUF:Q4_K_M\nPARAMETER num_ctx 8192\n" > /tmp/Modelfile && ollama create medgemma-4b-it-8k:q4_k_m -f /tmp/Modelfile'
   docker exec ollama ollama pull nomic-embed-text
 }
 
@@ -107,7 +112,8 @@ wait_mysql() {
 
 build_app() {
   echo ">> build jar"
-  ./mvnw package -DskipTests
+  # mvnw butuh konversi path Git Bash yang dimatikan di atas untuk perintah docker
+  env -u MSYS_NO_PATHCONV ./mvnw package -DskipTests
   echo ">> build image $APP_IMAGE"
   docker build -f src/main/docker/Dockerfile.jvm -t "$APP_IMAGE" .
 }
@@ -130,6 +136,7 @@ run_app() {
     -e QUARKUS_REDIS_HOSTS=redis://demo-redis:6379 \
     -e QUARKUS_LANGCHAIN4J_OLLAMA_BASE_URL=http://ollama:11434 \
     -e QUARKUS_LANGCHAIN4J_EASY_RAG_PATH=/deployments/rag-docs \
+    -e MED_BENCHMARK_ENABLED="${MED_BENCHMARK_ENABLED:-false}" \
     "$APP_IMAGE" >/dev/null
   echo ">> aplikasi jalan di http://localhost:$APP_PORT  (log: docker logs -f med-app)"
 }

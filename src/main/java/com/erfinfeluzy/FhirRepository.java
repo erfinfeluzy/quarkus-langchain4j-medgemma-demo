@@ -34,7 +34,24 @@ public class FhirRepository {
     DataSource dataSource;
 
     public List<Map<String, Object>> findPatients(String name) {
-        return query(FhirRepository::patient, "SELECT * FROM patient WHERE name LIKE ? ORDER BY name", "%" + name + "%");
+        // Nama kosong akan cocok dengan semua pasien (LIKE '%%')
+        if (name == null || name.isBlank()) {
+            return List.of();
+        }
+        return query(FhirRepository::patient, "SELECT * FROM patient WHERE name LIKE ? ORDER BY name", "%" + name.trim() + "%");
+    }
+
+    /**
+     * Full name of a patient named in the text (longest match first), or null. Deterministic fallback when the
+     * router calls a patient tool without a name; matching is case-insensitive through the column collation.
+     */
+    public String patientNamedIn(String text) {
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        List<Map<String, Object>> rows = query(row -> row,
+                "SELECT name FROM patient WHERE ? LIKE CONCAT('%', name, '%') ORDER BY CHAR_LENGTH(name) DESC LIMIT 1", text);
+        return rows.isEmpty() ? null : (String) rows.get(0).get("name");
     }
 
     /** Conditions, allergies, medications and encounters of one patient (lab results: see {@link #observations}). */

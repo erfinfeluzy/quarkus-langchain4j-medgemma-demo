@@ -1,0 +1,63 @@
+date: 2026-11-10T17:27:36.067820500
+url: http://localhost:8081  reps: 5  warmup: 1  seed: 42  questions: 80
+java: 25.0.4.1
+
+$ git rev-parse HEAD
+c5d1591b7d4997c809a8022ee3153d7402879c9f
+
+$ git status --short
+M README.md
+ M docker-run.cmd
+ M docker-run.sh
+ M pom.xml
+ M src/main/java/com/erfinfeluzy/Assistant.java
+ M src/main/java/com/erfinfeluzy/ChatChunk.java
+ M src/main/java/com/erfinfeluzy/ChatResource.java
+ M src/main/java/com/erfinfeluzy/FhirRepository.java
+ M src/main/java/com/erfinfeluzy/PatientTools.java
+ M src/main/resources/META-INF/resources/index.html
+ M src/main/resources/application.properties
+?? bench/
+?? docs/
+?? sample-image/
+?? src/main/java/com/erfinfeluzy/BaselineAssistant.java
+?? src/main/java/com/erfinfeluzy/ImageAssistant.java
+?? src/main/java/com/erfinfeluzy/Metrics.java
+?? src/main/java/com/erfinfeluzy/PatientAssistant.java
+?? src/main/java/com/erfinfeluzy/PatientDataAgent.java
+
+$ docker exec ollama ollama --version
+ollama version is 0.40.4
+
+$ docker exec ollama ollama list
+NAME                                        ID              SIZE      MODIFIED     
+medgemma-4b-it-8k:q4_k_m                    9b2c60a95602    3.3 GB    46 hours ago    
+qwen2.5:3b                                  357c53fb659c    1.9 GB    2 days ago      
+hf.co/unsloth/medgemma-4b-it-GGUF:Q4_K_M    19a6895488ba    3.3 GB    2 weeks ago     
+nomic-embed-text:latest                     0a109f422b47    274 MB    3 weeks ago
+
+$ docker exec ollama ollama ps
+NAME                        ID              SIZE      PROCESSOR    CONTEXT    RUNNER      UNTIL              
+medgemma-4b-it-8k:q4_k_m    9b2c60a95602    3.0 GB    100% GPU     8192       llamacpp    2 minutes from now    
+qwen2.5:3b                  357c53fb659c    2.4 GB    100% GPU     8192       llamacpp    2 minutes from now
+
+$ docker exec ollama printenv OLLAMA_NUM_PARALLEL
+
+
+$ docker ps --format {{.Names}} {{.Image}} {{.Status}}
+med-app quarkus/demo-med-ai-jvm Up 3 minutes
+ollama ollama/ollama Up 32 minutes
+demo-redis redis:8 Up 32 minutes
+demo-mysql mysql:8.4 Up 32 minutes
+
+$ nvidia-smi --query-gpu=name,driver_version,power.limit,clocks.max.graphics,memory.total --format=csv
+name, driver_version, power.limit [W], clocks.max.graphics [MHz], memory.total [MiB]
+NVIDIA GeForce RTX 5060 Laptop GPU, 572.90, [N/A], 3090 MHz, 8151 MiB
+
+$ powercfg /getactivescheme
+Power Scheme GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (Balanced)
+
+$ powershell -NoProfile -Command (Get-CimInstance Win32_Battery | Select-Object -First 1).BatteryStatus
+2
+
+BatteryStatus 2 = tersambung listrik (AC), 1 = memakai baterai

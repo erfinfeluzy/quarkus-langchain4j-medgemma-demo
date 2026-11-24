@@ -19,11 +19,13 @@ public class PatientTools {
     @Inject
     FhirRepository fhir;
 
-    @Tool("Find patients by (part of) their name. Returns a FHIR R4 Bundle with each matching Patient "
-            + "(medical record number, gender, birth date) and their Condition (diagnoses, ICD-10), "
-            + "AllergyIntolerance, MedicationStatement (current medications) and Encounter (visits, polyclinic, doctor).")
+    // Deskripsi tool hanya dibaca model kecil pemanggil tool (qwen2.5 3B): bahasa sederhana lebih akurat daripada istilah FHIR
+    @Tool("Find patients by (part of) their name: their diagnoses, allergies, current medications and visits.")
     public Map<String, Object> findPatient(@P("Full or partial patient name") String name) {
         Log.infof("Tool findPatient(name=%s)", name);
+        if (isBlank(name)) {
+            return missingArgument("name");
+        }
         List<Map<String, Object>> resources = new ArrayList<>();
         for (Map<String, Object> patient : fhir.findPatients(name)) {
             resources.add(patient);
@@ -36,6 +38,9 @@ public class PatientTools {
             + "(LOINC code, value, unit, reference range and interpretation: H = high, N = normal, L = low).")
     public Map<String, Object> labResults(@P("Full or partial patient name") String name) {
         Log.infof("Tool labResults(name=%s)", name);
+        if (isBlank(name)) {
+            return missingArgument("name");
+        }
         List<Map<String, Object>> resources = new ArrayList<>();
         for (Map<String, Object> patient : fhir.findPatients(name)) {
             resources.addAll(fhir.observations(Integer.parseInt((String) patient.get("id"))));
@@ -43,11 +48,28 @@ public class PatientTools {
         return FhirRepository.bundle(resources);
     }
 
-    @Tool("List the visits (FHIR R4 Encounter resources: patient, doctor, visit date) of a polyclinic. "
-            + "Polyclinics: Umum, Penyakit Dalam, Jantung, Anak, Kandungan.")
+    @Tool("List which patients visited a polyclinic (patient, doctor, visit date). Not for the polyclinic's "
+            + "schedule or opening hours. Polyclinics: Umum, Penyakit Dalam, Jantung, Anak, Kandungan.")
     public Map<String, Object> listPatientsByPolyclinic(@P("Polyclinic name") String polyclinic) {
         Log.infof("Tool listPatientsByPolyclinic(polyclinic=%s)", polyclinic);
+        if (isBlank(polyclinic)) {
+            return missingArgument("polyclinic");
+        }
         // The model often passes "Poli Jantung" instead of "Jantung"
         return FhirRepository.bundle(fhir.encountersByServiceType(polyclinic.replaceFirst("(?i)^poli\\s+", "").trim()));
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    /**
+     * Rejects a call without its required argument (the 3B router sometimes sends {}) instead of querying. Returned,
+     * not thrown; ChatResource sees it as no data and fills in the patient named in the message deterministically.
+     */
+    private static Map<String, Object> missingArgument(String argument) {
+        Log.warnf("Tool call rejected: missing %s", argument);
+        return Map.of("resourceType", "OperationOutcome", "issue", List.of(Map.of(
+                "severity", "error", "code", "required", "diagnostics", "Missing argument '" + argument + "'.")));
     }
 }
