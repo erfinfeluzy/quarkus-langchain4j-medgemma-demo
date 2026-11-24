@@ -54,3 +54,6 @@ docs/*.docm
 docs/*.pdf
 docs/*.pptx
 docs/*.md
+
+# Python scripts (kept local)
+*.py
